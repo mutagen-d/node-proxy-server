@@ -27,6 +27,7 @@ createSocksProxy(server, options)
 
 server.listen(8080)
 ```
+
 ## API
 
 ### `createHttpProxy([serverOrOptions [, options]])`
@@ -85,12 +86,12 @@ const server = createHttpProxy({
 
 `SocksProxyServerOptions`:
 
-| name             | type                  | required | default | description                                                                              |
-| ---------------- | --------------------- | -------- | ------- | ---------------------------------------------------------------------------------------- |
-| `keepAlive`      | `boolean`             | `no`     | `true`  | controls keep-alive behavior                                                             |
-| `keepAliveMsecs` | `number`              | `no`     | `1000`  | inactivity timeout before close connection                                               |
-| `onAuth`         | `OnAuth`              | `no`     | -       |                                                                                          |
-| `rewriteOptions` | `RewriteOptions`      | `no`     | -       | if defined then rewrite connection options for each subsequence connections              |
+| name             | type             | required | default | description                                                                 |
+| ---------------- | ---------------- | -------- | ------- | --------------------------------------------------------------------------- |
+| `keepAlive`      | `boolean`        | `no`     | `true`  | controls keep-alive behavior                                                |
+| `keepAliveMsecs` | `number`         | `no`     | `1000`  | inactivity timeout before close connection                                  |
+| `onAuth`         | `OnAuth`         | `no`     | -       | if defined then prefer password authentication                              |
+| `rewriteOptions` | `RewriteOptions` | `no`     | -       | if defined then rewrite connection options for each subsequence connections |
 
 1. Authorization
 
@@ -98,15 +99,16 @@ const server = createHttpProxy({
 const server = createSocksProxy({
   onAuth: (username, password, callback) => {
     callback(username === 'test' && password === '1234')
-  }
+  },
 })
 ```
 
 2. Rewrite options:
+
 ```js
 const server = createSocksProxy({
   rewriteOptions: (_, callback) => {
     callback({ rejectUnauthorized: false })
-  }
+  },
 })
 ```

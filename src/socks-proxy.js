@@ -73,7 +73,7 @@ function createSocksProxy(server, opts) {
   }
   const proxy = server instanceof net.Server ? server : net.createServer()
   const _socks = server instanceof net.Server ? opts : server;
-  proxy._socks = Object.assign({ onAuth: _unAuth, keepAlive: true, keepAliveMsecs: 1000 }, _socks)
+  proxy._socks = Object.assign({ keepAlive: true, keepAliveMsecs: 1000 }, _socks)
   proxy._socksRewriteOptions = _socks ? _socks.rewriteOptions : undefined;
   proxy.on('connection', _onConnection)
   return proxy;
@@ -198,18 +198,18 @@ function _onSocks5(data) {
       Object.assign(socket._socks, opts)
     })
   }
-  const { keepAlive, keepAliveMsecs } = socket._socks;
+  const { onAuth, keepAlive, keepAliveMsecs } = socket._socks;
   if (keepAlive) {
     _setKeepAlive(socket, keepAliveMsecs)
   }
   const nauth = data[1]
   const auth = data.subarray(2, 2 + nauth)
-  if (auth.includes(0x02)) {
+  if (auth.includes(0x02) && onAuth) {
     socket.write(Buffer.from([0x05, 0x02]))
     socket.once('data', _onPwAuth)
     return;
   }
-  if (auth.includes(0x00)) {
+  if (auth.includes(0x00) && !onAuth) {
     socket.write(Buffer.from([0x05, 0x00]))
     socket.once('data', _onSocks5Connection)
     return;
@@ -315,10 +315,4 @@ function _onSocks5Connection(data) {
 
 function _socks4Rep(message) {
   return Buffer.from([0, message, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01])
-}
-
-
-/** @type {OnAuth} */
-function _unAuth(_username, _password, _callback) {
-  _callback(false)
 }

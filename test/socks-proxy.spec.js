@@ -143,7 +143,7 @@ describe('socks-proxy', () => {
       expect(e.message).toMatch(/http\.Server not allowed/i)
     }
   })
-  it('request', async () => {
+  it('Successfull request', async () => {
     const config = {
       hostname: '127.0.0.1',
       port: proxy.port,
@@ -161,6 +161,8 @@ describe('socks-proxy', () => {
       password: proxy.auth.password,
     }, {
       protocol: 'socks5h:',
+      username: proxy.auth.username,
+      password: proxy.auth.password,
     }].map(opts => new SocksProxyAgent({ ...config, ...opts }))
 
     const run = async () => {
@@ -198,4 +200,43 @@ describe('socks-proxy', () => {
     }
     await run()
   }, 10 * 1000)
+  it('Unsupported auth type error', async () => {
+    const config = {
+      hostname: '127.0.0.1',
+      port: proxy.port,
+      tls: {
+        rejectUnauthorized: false,
+      },
+    }
+    const agent = new SocksProxyAgent({ ...config, protocol: 'socks5h:' })
+    const url = `http://localhost:${_http.port}/path?_=${Date.now()}`
+    expect.assertions(1)
+    try {
+      const res = await axios.get(url, {
+        httpAgent: agent,
+        validateStatus: (status) => status >= 200 && status < 600,
+      })
+    } catch (e) {
+      expect(e.message).toBeDefined()
+    }
+  })
+  it('No auth', async () => {
+    const config = {
+      hostname: '127.0.0.1',
+      port: proxy.port,
+      tls: {
+        rejectUnauthorized: false,
+      },
+    }
+    proxy.server._socksRewriteOptions = (_, callback) => {
+      callback({ onAuth: undefined })
+    }
+    const agent = new SocksProxyAgent({ ...config, protocol: 'socks5h:' })
+    const url = `http://localhost:${_http.port}/path?_=${Date.now()}`
+    const res = await axios.get(url, {
+      httpAgent: agent,
+      validateStatus: (status) => status >= 200 && status < 600,
+    })
+    expect(res.status).toBe(200)
+  })
 })
