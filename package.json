@@ -1,12 +1,22 @@
 {
-  "name": "node-proxy-server",
+  "name": "@mutagen-d/node-proxy-server",
   "version": "0.1.0",
-  "description": "",
+  "description": "Http and socks proxy server",
   "main": "index.js",
   "scripts": {
     "test": "jest"
   },
-  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mutagen-d/node-proxy-server.git"
+  },
+  "keywords": [
+    "http",
+    "https",
+    "socks",
+    "proxy",
+    "server"
+  ],
   "author": "mutagen-d",
   "license": "ISC",
   "dependencies": {},
