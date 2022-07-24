@@ -7,8 +7,6 @@ const axios = require('axios').default;
 const { SocksProxyAgent } = require('socks-proxy-agent')
 const { createSocksProxy } = require('../src/socks-proxy')
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-
 describe('socks-proxy', () => {
   /** @template T */
   function Deffer() {
@@ -195,7 +193,6 @@ describe('socks-proxy', () => {
     }
 
     await run()
-    await sleep(1.5 * 1000)
     proxy.server._socksRewriteOptions = (_, callback) => {
       callback({ keepAlive: false })
     }

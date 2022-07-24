@@ -5,7 +5,6 @@ const {
   _readChars,
   _onError,
   _onClose,
-  byte2string,
   toHex,
   _setTimeout,
 } = require('./tools')
@@ -123,7 +122,7 @@ function _onSocks4(data) {
   socket.on('error', _onError)
   socket.on('close', _onClose)
   const command = data[1]
-  const port = data.subarray(2, 4)
+  const port = data.readUint16BE(2)
   const ip = data.subarray(4, 8)
   const userid = _readChars(data, 8)
   if (!userid) {
@@ -138,9 +137,8 @@ function _onSocks4(data) {
       socket.end(_socks4Rep(REPv4.REJECTED))
       return;
     }
-    host = byte2string(domain)
+    host = domain.toString('ascii')
   }
-  const portNumber = (port[0] << 8) + port[1]
   /** @type {RewriteOptions} */
   const rewriteOptions = socket._socksRewriteOptions;
   if (rewriteOptions) {
@@ -156,12 +154,12 @@ function _onSocks4(data) {
   let proxy
   switch (command) {
     case CMD.CONNECT:
-      proxy = net.createConnection({ host, port: portNumber })
+      proxy = net.createConnection({ host, port })
       proxy._name = `${host}:${port}`
       socket.write(_socks4Rep(REPv4.SUCCESS))
       break;
     case CMD.BIND:
-      proxy = net.createConnection({ port: portNumber })
+      proxy = net.createConnection({ port })
       proxy._name = `:${port}`
       socket.write(_socks4Rep(REPv4.SUCCESS))
       break;
@@ -228,9 +226,9 @@ function _onPwAuth(data) {
   const { onAuth } = this._socks;
   const version = data[0]
   const idlen = data[1]
-  const id = byte2string(data.subarray(2, 2 + idlen))
+  const id = data.subarray(2, 2 + idlen).toString('ascii')
   const pwlen = data[2 + idlen]
-  const pw = byte2string(data.subarray(3 + idlen, 3 + idlen + pwlen))
+  const pw = data.subarray(3 + idlen, 3 + idlen + pwlen).toString('ascii')
 
   onAuth(id, pw, (auth) => {
     if (auth) {
@@ -254,41 +252,44 @@ function _onSocks5Connection(data) {
 
   const addrtype = data[3]
   let ipv4, domain, ipv6;
-  let port;
+  let port, portBuf;
   let host;
   let addr;
   switch (addrtype) {
     case ATYP.IPv4:
-      ipv4 = data.subarray(4, 8)
-      port = data.subarray(8, 10)
-      host = ipv4.join('.')
       addr = data.subarray(3, 8)
+      ipv4 = data.subarray(4, 8)
+      port = data.readUint16BE(8)
+      portBuf = data.subarray(8, 10)
+      host = ipv4.join('.')
       break;
     case ATYP.Name:
-      domain = data.subarray(5, 5 + data[4])
-      port = data.subarray(5 + data[4], 7 + data[4])
-      host = byte2string(domain)
       addr = data.subarray(3, 5 + data[4])
+      domain = data.subarray(5, 5 + data[4]).toString('ascii')
+      port = data.readUint16BE(5 + data[4])
+      portBuf = data.subarray(5 + data[4], 7 + data[4])
+      host = domain
       break;
     case ATYP.IPv6:
-      ipv6 = data.subarray(4, 20)
-      port = data.subarray(20, 22)
-      host = ipv6.map(toHex).join(':')
       addr = data.subarray(3, 20)
+      ipv6 = data.subarray(4, 20)
+      port = data.readUint16BE(20)
+      portBuf = data.subarray(20, 22)
+      host = ipv6.map(toHex).join(':')
       break;
     default:
       socket.end(Buffer.from([0x05, REPv5.ATYPUNSUPP, 0]))
       return;
   }
-  const portNumber = (port[0] << 8) + port[1]
   /** @type {net.Socket} */
   let proxy;
   switch (command) {
     case CMD.CONNECT:
     case CMD.BIND:
-      proxy = net.createConnection({ host, port: portNumber })
+      proxy = net.createConnection({ host, port })
       proxy._name = `${host}:${port}`
-      socket.write(Buffer.from([0x05, REPv5.SUCCESS, 0, ...addr, ...port]))
+      // TODO
+      socket.write(Buffer.from([0x05, REPv5.SUCCESS, 0, ...addr, ...portBuf]))
       break;
     case CMD.UDP:
       // TODO

@@ -32,7 +32,6 @@ module.exports = {
   _readChars,
   _setTimeout,
   toHex,
-  byte2string,
 }
 
 /**
@@ -190,15 +189,4 @@ function toHex(v) {
     default:
       return v;
   }
-}
-
-/**
- * @param {Buffer | Array<number>} data 
- */
-function byte2string(data) {
-  let res = ''
-  for (let i = 0; i < data.length; ++i) {
-    res += String.fromCharCode(data[i])
-  }
-  return res;
 }
