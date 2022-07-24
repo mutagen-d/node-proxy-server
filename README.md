@@ -7,14 +7,14 @@ This module provides `http` and `socks` proxy server implementation that can run
 ## Installation
 
 ```bash
-npm install node-proxy-server
+npm install @mutagen-d/node-proxy-server
 ```
 
 ## Example
 
 ```js
 const net = require('net')
-const { createHttpProxy, createSocksProxy } = require('node-proxy-server')
+const { createHttpProxy, createSocksProxy } = require('@mutagen-d/node-proxy-server')
 
 const server = net.createServer()
 
