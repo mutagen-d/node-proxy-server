@@ -1,114 +1,92 @@
-# node-proxy-server
+# Proxy Server
 
-## Http and socks proxy server
+Http and Socks proxy server with zero dependencies
 
-This module provides `http` and `socks` proxy server implementation that can run both protocols in one server instance.
+## Content
 
-## Installation
+- [Usage](#usage)
+- [Authorization](#authorization)
+- [Keep Alive](#keepalive)
+- [Custom proxy connection](#custom-proxy-connection)
+- [Examples](#examples)
 
-```bash
-npm install @mutagen-d/node-proxy-server
+## Usage
+
+```js
+const { createProxyServer } = require('./src')
+const port = 8080
+const server = createProxyServer()
+server.on('error', (error) => {
+  console.log('server error', error)
+})
+server.listen(port, '0.0.0.0', () => console.log('proxy-server listening port', port))
 ```
 
-## Example
+## Authorization
+
+```js
+const server = createProxyServer({ auth: true })
+server.on('proxy-auth', (username, password, callback) => {
+  callback(username === 'login' && password === '1234')
+})
+```
+
+Only first `"proxy-auth"` event listener will be envoked
+
+## KeepAlive
+
+```js
+server.on('connection', (socket) => {
+  socket.setTimeout(30 * 1000, () => socket.destroy())
+})
+```
+
+## Custom proxy connection
+
+Use `createProxyConnection` method.
+By default `net` module is used to create connection, e.i.
 
 ```js
 const net = require('net')
-const { createHttpProxy, createSocksProxy } = require('@mutagen-d/node-proxy-server')
-
-const server = net.createServer()
-
-const options = {
-  keepAlive: true,
-  keepAliveMsecs: 5000,
-}
-createHttpProxy(server, options)
-createSocksProxy(server, options)
-
-server.listen(8080)
+const { createProxyServer } = require('./src')
+const server = createProxyServer({
+  createProxyConnection: async (info) => {
+    const socket = net.createConnection({ host: info.dstHost, port: info.dstPort })
+    return new Promise((resolve, reject) => {
+      socket.on('connect', () => resolve(socket))
+      socket.on('error', (error) => reject(error))
+    })
+  }
+})
 ```
-
-## API
-
-### `createHttpProxy([serverOrOptions [, options]])`
-
-- `serverOrOptions` - `net.Server` or `HttpProxyServerOptions`
-- `options` - `HttpProxyServerOptions`
-
-`HttpProxyServerOptions`:
-
-| name             | type                  | required | default | description                                                                              |
-| ---------------- | --------------------- | -------- | ------- | ---------------------------------------------------------------------------------------- |
-| `keepAlive`      | `boolean`             | `no`     | `true`  | controls keep-alive behavior                                                             |
-| `keepAliveMsecs` | `number`              | `no`     | `1000`  | inactivity timeout before close connection                                               |
-| `authType`       | `"Basic" \| "Bearer"` | `no`     | -       | if defined then proxy authentication required                                            |
-| `authRealm`      | `string`              | `no`     | -       |                                                                                          |
-| `onAuth`         | `OnAuth`              | `no`     | -       |                                                                                          |
-| `useHttpRequest` | `boolean`             | `no`     | -       | if `ture` then use `http.request` for HTTP requests, otherwise directly use `net.Socket` |
-| `rewriteOptions` | `RewriteOptions`      | `no`     | -       | if defined then rewrite connection options for each subsequence connections              |
-
-1. Authorization:
+One can also use other methods to create connection, e.i [ssh2-dynamic-port-forwarding](https://github.com/mscdex/ssh2#dynamic-11-port-forwarding-using-a-socksv5-proxy-using-socksv5)
 
 ```js
-const server = createHttpProxy({
-  authType: 'Basic',
-  onAuth: (auth, callback) => {
-    switch (auth.type) {
-      case 'Basic':
-        // authorize connection
-        callback(auth.username === 'test' && auth.password === '1234')
-        break
-      default:
-        // reject connection
-        callback(false)
-        break
-    }
+const { createProxyServer } = require('./src')
+const { Client } = require('ssh2')
+const util = require('util')
+
+const sshClient = new Client()
+const forwardOut = util.promisify(sshClient.forwardOut)
+
+const server = createProxyServer({
+  createProxyConnection: async (info) => {
+    const stream = await forwardOut.call(sshClient, info.srcHost, info.srcPort, info.dstHost, info.dstPort)
+    return stream
   },
+})
+
+sshClient.connect({
+  host: 'localhost',
+  username: 'username',
+  password: '12345',
+})
+sshClient.on('ready', () => {
+  const port = 8080
+  server.listen(port, '0.0.0.0', () => console.log('proxy-server listening port', port))
 })
 ```
 
-2. Rewrite options:
+## Examples
 
-```js
-const server = createHttpProxy({
-  rewriteOptions: (req, callback) => {
-    if (req.url === 'localhost:443') {
-      callback({ rejectUnauthorized: false })
-    }
-  },
-})
-```
-
-### `createSocksProxy([serverOrOptions [, options]])`
-
-- `serverOrOptions` - `net.Server` or `SocksProxyServerOptions`
-- `options` - `SocksProxyServerOptions`
-
-`SocksProxyServerOptions`:
-
-| name             | type             | required | default | description                                                                 |
-| ---------------- | ---------------- | -------- | ------- | --------------------------------------------------------------------------- |
-| `keepAlive`      | `boolean`        | `no`     | `true`  | controls keep-alive behavior                                                |
-| `keepAliveMsecs` | `number`         | `no`     | `1000`  | inactivity timeout before close connection                                  |
-| `onAuth`         | `OnAuth`         | `no`     | -       | if defined then prefer password authentication                              |
-| `rewriteOptions` | `RewriteOptions` | `no`     | -       | if defined then rewrite connection options for each subsequence connections |
-
-1. Authorization
-
-```js
-const server = createSocksProxy({
-  onAuth: (username, password, callback) => {
-    callback(username === 'test' && password === '1234')
-  },
-})
-```
-
-2. Rewrite options:
-
-```js
-const server = createSocksProxy({
-  rewriteOptions: (_, callback) => {
-    callback({ rejectUnauthorized: false })
-  },
-})
-```
+see [examples](./example)
