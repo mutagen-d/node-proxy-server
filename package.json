@@ -1,6 +1,6 @@
 {
   "name": "@mutagen-d/node-proxy-server",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Http and socks proxy server",
   "main": "src/index.js",
   "scripts": {
