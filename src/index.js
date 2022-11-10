@@ -97,9 +97,9 @@ function createProxyServer(options) {
         server.emit('proxy-connection', conn, { dstHost, dstPort, srcHost, srcPort })
         if (options.headers['proxy-authorization']) {
           delete options.headers['proxy-authorization']
-          socket.write(serializeHTTP(options))
+          conn.write(serializeHTTP(options))
         } else {
-          socket.write(data)
+          conn.write(data)
         }
       }
       socket.resume();
@@ -220,7 +220,7 @@ function createProxyServer(options) {
     try {
       /** @type {net.Socket} */
       let conn;
-      if (command === 0x01) {
+      if (command === 0x01) { // CONNECT
         socket.pause()
         conn = await createProxyConnection({ dstHost, dstPort, srcHost, srcPort })
         server.emit('proxy-connection', conn, { dstHost, dstPort, srcHost, srcPort })
