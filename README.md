@@ -5,6 +5,7 @@ Http and Socks proxy server with zero dependencies
 ## Content
 
 - [Usage](#usage)
+- [TLS](#tls)
 - [Authorization](#authorization)
 - [Keep Alive](#keepalive)
 - [Custom proxy connection](#custom-proxy-connection)
@@ -13,13 +14,26 @@ Http and Socks proxy server with zero dependencies
 ## Usage
 
 ```js
-const { createProxyServer } = require('./src')
+const { createProxyServer } = require('@mutagen-d/node-proxy-server')
 const port = 8080
 const server = createProxyServer()
 server.on('error', (error) => {
   console.log('server error', error)
 })
 server.listen(port, '0.0.0.0', () => console.log('proxy-server listening port', port))
+```
+
+## Tls
+
+create tls server
+
+```js
+const fs = require('fs')
+const path = require('path')
+const server = createProxyServer({
+  cert: fs.readFileSync(path.join(__dirname, './cert.pem'), 'utf-8'),
+  key: fs.readFileSync(path.join(__dirname, './key.pem'), 'utf-8'),
+})
 ```
 
 ## Authorization

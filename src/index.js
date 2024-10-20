@@ -26,14 +26,14 @@ const { ReadBuffer } = require('./read-buffer');
  *  on(event: 'socks5-proxy-connection', listener: (socket: net.Socket, data: Buffer) => any): ProxyServer;
  *  on(event: 'proxy-auth', listener: OnAuth): ProxyServer;
  *  on(event: 'proxy-connection', listener: (connection: import('stream').Duplex, info: ConnectionInfo)): ProxyServer;
+ *  on(event: 'secureConnection', listener: (socket: tls.TLSSocket) => any): ProxyServer;
  * } & net.Server} ProxyServer
  * @typedef {{ dstHost: string, dstPort: number; srcHost: string; srcPort: number }} ConnectionInfo
  * @typedef {{
  *  createProxyConnection?: CreateProxyConnection;
  *  auth?: boolean;
- * }} ProxyServerOptions
+ * } & Pick<Parameters<tls['createServer']>[0], 'ca' | 'cert' | 'key'>} ProxyServerOptions
  */
-
 
 /**
  * @param {ProxyServerOptions} [options]
@@ -41,13 +41,23 @@ const { ReadBuffer } = require('./read-buffer');
 function createProxyServer(options) {
   const auth = { enabled: options && options.auth }
   const createProxyConnection = options && options.createProxyConnection || createTCPConnection
+  const tlsOpts = options ? { ca: options.ca, cert: options.cert, key: options.key } : {}
+  const isTlsServer = tlsOpts.ca || tlsOpts.cert || tlsOpts.key
   /** @type {ProxyServer} */
-  const server = net.createServer();
-  server.on('connection', (socket) => {
-    socket._server = server;
-    socket.on('error', onSocketError)
-    socket.once('data', onConnectionHandshake)
-  })
+  const server = isTlsServer ? tls.createServer(tlsOpts) : net.createServer();
+  if (isTlsServer) {
+    server.on('secureConnection', (socket) => {
+      socket._server = server;
+      socket.on('error', onSocketError)
+      socket.once('data', onConnectionHandshake)
+    })
+  } else {
+    server.on('connection', (socket) => {
+      socket._server = server;
+      socket.on('error', onSocketError)
+      socket.once('data', onConnectionHandshake)
+    })
+  }
   server.on('http-proxy', (socket, data, options) => {
     if (!auth.enabled) {
       server.emit('http-proxy-connection', socket, data, options)
@@ -95,8 +105,9 @@ function createProxyServer(options) {
         const { host: dstHost, port: dstPort } = new URL(url);
         conn = await createProxyConnection({ srcHost, srcPort, dstHost, dstPort: dstPort || 80 }, options)
         server.emit('proxy-connection', conn, { dstHost, dstPort, srcHost, srcPort })
-        if (options.headers['proxy-authorization']) {
+        if (options.headers['proxy-authorization'] || options.headers['proxy-connection']) {
           delete options.headers['proxy-authorization']
+          delete options.headers['proxy-connection']
           conn.write(serializeHTTP(options))
         } else {
           conn.write(data)
@@ -269,11 +280,10 @@ function onConnectionHandshake(data) {
 /** @type {CreateProxyConnection} */
 function createTCPConnection(info, options) {
   const socket = net.createConnection({ host: info.dstHost, port: info.dstPort })
-  const conn = options && options.url.indexOf('https:') === 0 ? new tls.TLSSocket(socket, { rejectUnauthorized: false }) : socket;
-  /** @type {Deffer<net.Socket>} */
+  /** @type {Deffer<net.Socket | tls.TLSSocket>} */
   const deffer = new Deffer()
-  conn.on('connect', () => deffer.resolve(conn))
-  conn.on('error', (err) => deffer.reject(err))
+  socket.on('connect', () => deffer.resolve(socket))
+  socket.on('error', (err) => deffer.reject(err))
   return deffer.promise;
 }
 

@@ -21,10 +21,12 @@ function parseHTTP(data) {
     if (data[i] === LF && data[i + 1] === LF) {
       rawHeaders = data.subarray(0, i).toString('utf-8')
       body = data.subarray(i + 2)
+      break
     }
     if (data[i] === CR && data[i + 1] === LF && data[i + 2] === CR && data[i + 3] === LF) {
       rawHeaders = data.subarray(0, i).toString('utf-8')
       body = data.subarray(i + 4)
+      break
     }
   }
   const lines = rawHeaders.split(/\r?\n/g).filter(Boolean);
